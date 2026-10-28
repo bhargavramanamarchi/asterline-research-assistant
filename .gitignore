@@ -1,0 +1,26 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Environment Variables & Secrets (CRITICAL: never commit real API keys)
+.env
+.env.local
+.env.*
+!.env.example
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Vector DB & Data
+data/chroma_db/
+*.db
+*.sqlite3
+
+# Logs & temp test files
+*.log
+scratch/
+test_*.bin

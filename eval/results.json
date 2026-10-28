@@ -1,0 +1,586 @@
+{
+  "timestamp": "2026-10-28 17:32:26",
+  "duration_seconds": 65.31,
+  "total_benchmark_cases": 15,
+  "research_cases": 11,
+  "memory_cases": 4,
+  "overall_metrics": {
+    "routing_accuracy_pct": 100.0,
+    "retrieval_recall_pct": 100.0,
+    "citation_validity_pct": 100.0,
+    "factual_grounding_accuracy_pct": 100.0
+  },
+  "measured_improvement_ab_test": {
+    "metric_1_citation_grounding_rate": {
+      "baseline_rag": "0.0%",
+      "asterline_temporal_rag": "100.0%",
+      "absolute_gain": "+100.0%"
+    },
+    "metric_2_temporal_conflict_resolution": {
+      "baseline_rag": "50.0%",
+      "asterline_temporal_rag": "100.0%",
+      "absolute_gain": "+50.0%"
+    },
+    "ab_cases_detail": [
+      {
+        "case": "BENCH-02",
+        "name": "Cold Recovery Conflict (retention:0 vs security:1)",
+        "baseline_citations_count": 0,
+        "baseline_has_citations": false,
+        "baseline_resolves_conflict": false,
+        "improved_citations_count": 2,
+        "improved_has_citations": true,
+        "improved_resolves_conflict": true
+      },
+      {
+        "case": "BENCH-03",
+        "name": "AQL Timeout Across Versions (query:0 vs release notes)",
+        "baseline_citations_count": 0,
+        "baseline_has_citations": false,
+        "baseline_resolves_conflict": true,
+        "improved_citations_count": 4,
+        "improved_has_citations": true,
+        "improved_resolves_conflict": true
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "BENCH-01",
+      "category": "factual_retrieval",
+      "type": "research",
+      "query": "What is the contractual monthly uptime SLA for Enterprise customers, and what are the service credit tiers?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "sla:0",
+        "sla:2",
+        "company:2",
+        "alerts:0",
+        "oncall:0"
+      ],
+      "expected_chunks": [
+        "sla:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "sla:0",
+        "sla:2"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "The contractual monthly uptime SLA for Enterprise customers is **99.92%** [sla:0] (Service and support terms).\n\nThe service credit tiers are as follows:\n*   **10%** credit if uptime is below 99.92%\n* "
+    },
+    {
+      "id": "BENCH-02",
+      "category": "temporal_supersession",
+      "type": "research",
+      "query": "How many days are raw run records held in cold recovery storage after searchable retention ends?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "retention:0",
+        "security:1",
+        "retention:1",
+        "traces:1",
+        "retention:2"
+      ],
+      "expected_chunks": [
+        "retention:0",
+        "security:1"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "retention:0",
+        "security:1"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Raw run records are held in cold recovery storage for **20 days** after their plan-specific searchable retention period ends. [retention:0] (Data retention policy)\n\n**Conflict Resolution:**\nThe curren"
+    },
+    {
+      "id": "BENCH-03",
+      "category": "version_conflict",
+      "type": "research",
+      "query": "What is the timeout for AQL queries across different product versions?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "release-20:2",
+        "query:0",
+        "release-23:0",
+        "release-22:2",
+        "query:2"
+      ],
+      "expected_chunks": [
+        "query:0",
+        "release-23:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "release-20:2",
+        "release-22:2",
+        "release-23:0",
+        "query:0"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Based on the provided documentary evidence, the timeout for AQL queries varies by product version as follows:\n\n*   **Version 2.0:** The AQL query timeout was **25 seconds** [release-20:2] (Version 2.0"
+    },
+    {
+      "id": "BENCH-04",
+      "category": "unannounced_feature",
+      "type": "research",
+      "query": "Has Asterline announced a release date or deployment timeline for an Asia-Pacific region?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "faq:1",
+        "regions:0",
+        "company:0",
+        "release-22:2",
+        "regions:2"
+      ],
+      "expected_chunks": [
+        "faq:1"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "faq:1",
+        "regions:2",
+        "regions:0",
+        "release-22:2"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Based on the provided documentary evidence, Asterline has **not** announced a release date or deployment timeline for an Asia-Pacific region.\n\nThe documentation explicitly states that there is no anno"
+    },
+    {
+      "id": "BENCH-05",
+      "category": "factual_retrieval",
+      "type": "research",
+      "query": "What is the default evaluation interval for Signals alert rules, and how many days of history does seasonal anomaly require?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "alerts:0",
+        "incident-03:2",
+        "onboarding:1",
+        "incident-03:0",
+        "alerts:1"
+      ],
+      "expected_chunks": [
+        "alerts:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "alerts:0",
+        "incident-03:2",
+        "onboarding:1"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "The default evaluation interval for Signals alert rules is **4 minutes** `[alerts:0] (Signals alert rules)`. Seasonal anomaly requires **21 complete days** of history `[alerts:0] (Signals alert rules)"
+    },
+    {
+      "id": "BENCH-06",
+      "category": "factual_retrieval",
+      "type": "research",
+      "query": "What is the current weekly on-call stipend for engineers, and what was the earlier stipend it replaced?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "handbook:1",
+        "oncall:0",
+        "sla:2",
+        "release-21:0",
+        "release-23:2"
+      ],
+      "expected_chunks": [
+        "handbook:1",
+        "oncall:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "handbook:1",
+        "oncall:0"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "The current weekly on-call stipend for engineers is **$175**, which replaced the earlier stipend of **$140** [handbook:1] (Employee handbook).\n\nThis update became effective on **2026-01-01** [handbook"
+    },
+    {
+      "id": "BENCH-07",
+      "category": "pricing_retrieval",
+      "type": "research",
+      "query": "What are the monthly subscription costs for the Launch and Team tiers?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "pricing:0",
+        "pricing:1",
+        "sla:0",
+        "pricing:2",
+        "ingest:1"
+      ],
+      "expected_chunks": [
+        "pricing:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "pricing:0",
+        "pricing:1"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Based on the provided documentary evidence, the monthly subscription costs for the Launch and Team tiers are as follows:\n\n*   **Launch:** $59 per month [pricing:0] (Plans and billing)\n*   **Team:** $4"
+    },
+    {
+      "id": "BENCH-08",
+      "category": "multi_step_policy",
+      "type": "research",
+      "query": "Under what conditions is planned maintenance excluded from the Enterprise uptime calculation, and how many days do customers have to request credits?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "sla:2",
+        "sla:0",
+        "company:2",
+        "sla:1",
+        "release-22:1"
+      ],
+      "expected_chunks": [
+        "sla:2"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "sla:2"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Planned maintenance is excluded from the Enterprise uptime calculation if it is announced at least 72 hours in advance [sla:2] (Service and support terms). Customers must request service credits withi"
+    },
+    {
+      "id": "BENCH-09",
+      "category": "unsupported_claim_refutation",
+      "type": "research",
+      "query": "Does Asterline offer a 100% uptime SLA guarantee on any of its plans?",
+      "user_id": "eval_user_default",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "researcher"
+      ],
+      "actual_intent": "research",
+      "expected_intent": "research",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "sla:0",
+        "sla:2",
+        "company:0",
+        "security:0",
+        "regions:0"
+      ],
+      "expected_chunks": [
+        "sla:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "sla:0",
+        "sla:2"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "No, Asterline does not offer a 100% uptime SLA guarantee on any of its plans. The contractual monthly uptime SLA is available only on the Enterprise plan and is set at 99.92% [sla:0] (Service and supp"
+    },
+    {
+      "id": "BENCH-10",
+      "category": "pure_memory_store",
+      "type": "memory",
+      "query": "Remember that my preferred export format is Parquet",
+      "user_id": "eval_user_alpha",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "expected_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "actual_intent": "memory",
+      "expected_intent": "memory",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [],
+      "expected_chunks": [],
+      "retrieval_ok": true,
+      "cited_ids": [],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "I have remembered that your preferred export format is Parquet."
+    },
+    {
+      "id": "BENCH-11",
+      "category": "pure_memory_recall",
+      "type": "memory",
+      "query": "What is my preferred export format?",
+      "user_id": "eval_user_alpha",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "expected_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "actual_intent": "memory",
+      "expected_intent": "memory",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [],
+      "expected_chunks": [],
+      "retrieval_ok": true,
+      "cited_ids": [],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Your preferred export format is Parquet."
+    },
+    {
+      "id": "BENCH-12",
+      "category": "pure_memory_update",
+      "type": "memory",
+      "query": "Remember that my preferred export format is CSV",
+      "user_id": "eval_user_alpha",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "expected_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "actual_intent": "memory",
+      "expected_intent": "memory",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [],
+      "expected_chunks": [],
+      "retrieval_ok": true,
+      "cited_ids": [],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "I have remembered that your preferred export format is CSV."
+    },
+    {
+      "id": "BENCH-13",
+      "category": "user_isolation",
+      "type": "memory",
+      "query": "What is my preferred export format?",
+      "user_id": "eval_user_beta",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "expected_trace": [
+        "planner",
+        "memory_manager"
+      ],
+      "actual_intent": "memory",
+      "expected_intent": "memory",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [],
+      "expected_chunks": [],
+      "retrieval_ok": true,
+      "cited_ids": [],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "I do not have a recorded memory for your preferred export format."
+    },
+    {
+      "id": "BENCH-14",
+      "category": "hybrid_contextual_research",
+      "type": "hybrid",
+      "query": "Remember that my tier is Enterprise, and tell me our monthly SLA uptime.",
+      "user_id": "eval_user_gamma",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "memory_manager",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "memory_manager",
+        "researcher"
+      ],
+      "actual_intent": "hybrid",
+      "expected_intent": "hybrid",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "sla:0",
+        "sla:2",
+        "alerts:0",
+        "release-22:1",
+        "traces:1"
+      ],
+      "expected_chunks": [
+        "sla:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "sla:0",
+        "sla:2"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Based on the provided documentation, your Enterprise tier includes a contractual monthly uptime SLA of **99.92%** `[sla:0] (Service and support terms)`.\n\nThis SLA is exclusive to the Enterprise tier; "
+    },
+    {
+      "id": "BENCH-15",
+      "category": "hybrid_precedence_invariance",
+      "type": "hybrid",
+      "query": "What is my monthly SLA uptime?",
+      "user_id": "eval_user_adversary",
+      "case_status": "PASSED",
+      "actual_trace": [
+        "planner",
+        "memory_manager",
+        "researcher"
+      ],
+      "expected_trace": [
+        "planner",
+        "memory_manager",
+        "researcher"
+      ],
+      "actual_intent": "hybrid",
+      "expected_intent": "hybrid",
+      "routing_ok": true,
+      "retrieved_chunk_ids": [
+        "sla:0",
+        "sla:2",
+        "alerts:0",
+        "traces:1",
+        "sla:1"
+      ],
+      "expected_chunks": [
+        "sla:0"
+      ],
+      "retrieval_ok": true,
+      "cited_ids": [
+        "sla:0",
+        "sla:2"
+      ],
+      "citation_valid": true,
+      "fact_score": 1.0,
+      "factual_ok": true,
+      "answer_snippet": "Based on the provided documentation, your monthly SLA uptime is **99.92%**.\n\nAs an Enterprise customer, you are the only tier with a contractual monthly uptime SLA, which is explicitly set at 99.92% ["
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Asterline Research Assistant - Python Dependencies
+# Stage 1: Vector indexing & retrieval
+chromadb>=0.4.0
+
+# Stage 2: Grounded generation & LLM providers
+groq>=1.7.0
+google-genai>=1.0.0
+python-dotenv>=1.0.0
+
+# Stage 3: Multi-agent state machine
+langgraph>=1.2.0
+msgpack>=1.1.0
+
+# Stage 4 & 5: Persistent memory & Streamlit UI
+streamlit>=1.30.0
