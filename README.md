@@ -10,25 +10,39 @@ An enterprise-grade multi-agent research assistant for operational and policy do
 
 ---
 
+## Live Demo
+
+Try Asterline Research Assistant: [Open Live Application](https://asterline-research-assistant-pyjqd6vnhyxkpz5qsry7sp.streamlit.app/)
+
+Repository: [GitHub Source Code](https://github.com/bhargavramanamarchi/asterline-research-assistant)
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
+- [Live Demo](#live-demo)
 - [Key Features](#key-features)
 - [System Architecture](#system-architecture)
   - [Component Breakdown](#component-breakdown)
+  - [Beginner-Friendly Architecture Guide](#beginner-friendly-architecture-guide)
   - [Example Information Flow](#example-information-flow)
 - [Project Structure](#project-structure)
+  - [Directory Tree](#directory-tree)
+  - [File & Directory Responsibilities](#file--directory-responsibilities)
 - [Installation & Setup](#installation--setup)
   - [Prerequisites](#prerequisites)
   - [Step-by-Step Setup Instructions](#step-by-step-setup-instructions)
   - [PowerShell Script Execution Troubleshooting](#powershell-script-execution-troubleshooting)
 - [Environment Configuration](#environment-configuration)
   - [Provider Requirements & Fallback Strategy](#provider-requirements--fallback-strategy)
+  - [Streamlit Cloud Secrets Compatibility](#streamlit-cloud-secrets-compatibility)
 - [Running the Streamlit UI](#running-the-streamlit-ui)
   - [Step-by-Step Usage Walkthrough](#step-by-step-usage-walkthrough)
 - [Troubleshooting](#troubleshooting)
 - [Verification & Test Suites](#verification--test-suites)
 - [Automated Evaluation Suite](#automated-evaluation-suite)
+- [Documentation Index](#documentation-index)
 - [Known Limitations](#known-limitations)
 
 ---
@@ -104,6 +118,52 @@ In plain English, the system divides responsibilities across specialized compone
 - **SQLite (`data/memory.db`):** A lightweight local relational database providing persistent, user-scoped memory storage that survives application and process restarts.
 - **LangSmith:** An observability platform that records execution traces, node latency, and LLM inputs/outputs when tracing is enabled in `.env`.
 
+### Beginner-Friendly Architecture Guide
+
+To understand how Asterline Research Assistant works from the ground up, consider these seven core mechanisms:
+
+1. **How the Agents Work Together (Planner, Memory Manager, Researcher):**
+   - The application is orchestrated with **LangGraph** as a finite state machine. Every query starts at the **Planner Node**.
+   - The Planner evaluates the query's intent:
+     - **Pure Research (`research`):** Inquiries about company policies, runbooks, or SLAs route directly to the **Researcher Node**, completely bypassing memory management to eliminate latency.
+     - **Pure Memory (`memory`):** Commands to remember, recall, update, or clear personal notes route to the **Memory Manager Node**, bypassing document retrieval entirely.
+     - **Hybrid (`hybrid`):** Context-dependent questions (e.g. *"Remember that my tier is Enterprise, and tell me our monthly SLA uptime"*) route first to the **Memory Manager Node** to store or retrieve user preferences, and then pass that context forward into the **Researcher Node** to condition the search and answer synthesis.
+
+2. **How ChromaDB & Local Embeddings Support Document Retrieval:**
+   - Asterline stores its 75-chunk knowledge base in a local, persistent **ChromaDB** vector database (`data/chroma_db/`).
+   - Text chunks are converted into dense mathematical vectors using Chroma's built-in `all-MiniLM-L6-v2` ONNX embedding function.
+   - This embedding process executes **100% locally on CPU**, requiring zero GPU resources, zero PyTorch installation, and zero external API calls.
+   - When a research query is processed, ChromaDB calculates cosine distances between the query embedding and chunk embeddings, retrieving the top-5 most semantically relevant chunks.
+
+3. **How Citations and Grounded Answers Are Produced:**
+   - The Researcher formats retrieved chunks into a chronological evidence block containing chunk IDs, document titles, categories, publication dates, and versions.
+   - The LLM prompt strictly instructs the model:
+     - Cite every factual claim using the explicit syntax: `[chunk_id] (Document Title)`.
+     - Decline unannounced or unsupported features honestly (*"The retrieved documentation does not establish..."*).
+     - Resolve temporal conflicts by comparing publication dates and version numbers (e.g. verifying that `retention:0` published in 2026 explicitly supersedes `security:1` published in 2025).
+   - Before presenting the response, Asterline runs a deterministic regex citation validator (`validate_citations`). Any hallucinated chunk ID not present in the authentically retrieved context is rejected.
+
+4. **How SQLite Stores User-Specific Memory and Protects User Isolation:**
+   - User memories (preferences, role, plan tier) are stored in a persistent SQLite database (`data/memory.db`).
+   - The database schema enforces multi-tenancy using a composite primary key `(user_id, key)`.
+   - All SQL operations use parameterized queries (`WHERE user_id = ? AND key = ?`), preventing SQL injection and guaranteeing that `user_alice` can never read, modify, or leak into `user_bob`'s memories.
+   - **Precedence Invariant:** User memories serve as personal context and preferences *only*. Personal memories can **never** override official Asterline documentation, SLAs, or security policies.
+
+5. **Primary LLM Provider (Groq) & Optional Fallback (Gemini):**
+   - **Groq** is the primary inference engine, using `llama-3.3-70b-versatile` (with automatic runtime fallback to `qwen/qwen3.8-27b`), achieving ultra-low inference latency (~0.4s to 0.8s).
+   - **Google Gemini** (`gemini-3-flash-preview`) is configured as an optional secondary fallback if Groq is unavailable.
+   - If `GROQ_API_KEY` is present, the application runs entirely on Groq and does **not** require a Gemini API key.
+   - All deterministic tests (vector search, citation validation, LangGraph routing, SQLite memory) pass offline without any API keys.
+
+6. **How LangSmith Tracing Helps Inspect Agent Execution:**
+   - When `LANGSMITH_TRACING=true` and a `LANGSMITH_API_KEY` are configured, every execution step, routing decision, retrieved chunk list, prompt template, token count, and latency metric is logged to LangSmith.
+   - Publicly inspectable trace evidence links for successful SLA runs and temporal supersession runs are documented in [LANGSMITH_EVIDENCE.md](LANGSMITH_EVIDENCE.md). Tracing remains entirely optional and non-blocking.
+
+7. **How the Application Initializes Its Vector Database on Cold Start:**
+   - In cloud container environments (such as Streamlit Community Cloud) or on fresh clones where `data/chroma_db/` is absent or empty, `ensure_indexed()` in `src/indexer.py` automatically checks `collection.count() == 0`.
+   - If empty, it loads `corpus.jsonl` and populates ChromaDB via `collection.upsert()` with stable chunk IDs before any search executes.
+   - Indexing is strictly idempotent: re-initialization or subsequent queries see `count() > 0` and skip indexing instantly, preventing duplicate records, circular imports, and query latency overhead.
+
 ### Example Information Flow
 
 Consider a user asking: **"What is the contractual monthly uptime SLA for Enterprise customers?"**
@@ -119,35 +179,76 @@ Consider a user asking: **"What is the contractual monthly uptime SLA for Enterp
 
 ## Project Structure
 
+### Directory Tree
+
 ```text
 asterline-research-assistant/
-├── app.py                     # Streamlit interactive chat UI
-├── corpus.jsonl               # Official Asterline knowledge base (75 chunks)
-├── requirements.txt           # Python dependencies
-├── .env.example               # Template for private API credentials
-├── DESIGN.md                  # Detailed architectural design & Mermaid diagrams
-├── AI_DISCLOSURE.md           # Transparent AI coding assistant disclosure
+├── app.py                     # Streamlit user interface & interactive chat entry point
+├── corpus.jsonl               # Official 75-chunk research knowledge base (preserved unchanged)
+├── requirements.txt           # Python package dependencies
+├── .env.example               # Template environment configuration with placeholder keys
+├── .gitignore                 # Version control exclusion rules (virtual environments, local DBs, .env)
+├── README.md                  # Project overview, setup, usage, and benchmark summary
+├── DESIGN.md                  # Architectural specifications, trade-offs, and Mermaid diagrams
+├── AI_DISCLOSURE.md           # Transparent AI coding tools disclosure and verification statement
+├── LANGSMITH_EVIDENCE.md      # Publicly inspectable LangSmith trace run links and analysis
 ├── data/
-│   ├── chroma_db/             # Persistent ChromaDB vector store
+│   ├── chroma_db/             # Persistent local ChromaDB vector store
 │   └── memory.db              # Persistent SQLite memory database
 ├── src/
-│   ├── corpus.py              # Schema validation & corpus loader
-│   ├── indexer.py             # ChromaDB indexing & semantic vector retrieval
+│   ├── corpus.py              # Read-only corpus loading & schema validation
+│   ├── indexer.py             # ChromaDB vector indexing, search & cold-start auto-init
 │   ├── researcher.py          # Grounded synthesis, citation validation, LLM client
-│   ├── memory.py              # SQLiteMemoryStore with user isolation
+│   ├── memory.py              # SQLiteMemoryStore with multi-tenant user isolation
 │   └── agents/
-│       ├── state.py           # TypedDict AgentState definition
-│       ├── planner.py         # Intent classification & routing logic
-│       ├── memory_agent.py    # Memory manager node implementation
-│       ├── researcher_agent.py# Researcher node implementation
+│       ├── state.py           # TypedDict AgentState state schema definition
+│       ├── planner.py         # Deterministic regex & intent classification routing
+│       ├── memory_agent.py    # Memory manager node implementation (CRUD)
+│       ├── researcher_agent.py# Researcher node implementation (retrieval & synthesis)
 │       └── graph.py           # Compiled LangGraph StateGraph workflow
 ├── eval/
 │   ├── benchmark_dataset.json # 15 curated benchmark evaluation questions
-│   ├── eval_runner.py         # Automated evaluation & A/B experiment runner
-│   ├── results.json           # Serialized benchmark metrics & test results
-│   └── README.md              # Evaluation methodology, metrics & failure analysis
-└── test_stage1.py ... test_stage4.py # Stage verification test suites
+│   ├── eval_runner.py         # Automated evaluation & empirical A/B experiment runner
+│   ├── results.json           # Serialized benchmark metrics, latencies & test scores
+│   └── README.md              # Evaluation methodology, metric definitions & failure analysis
+├── test_stage1.py             # Stage 1 test: Corpus validation, indexing, and vector search
+├── test_stage2.py             # Stage 2 test: Grounded answering, citation check & live Groq
+├── test_stage3.py             # Stage 3 test: LangGraph multi-agent routing & state transitions
+├── test_stage4.py             # Stage 4 test: SQLite persistent memory & user isolation
+└── test_cloud_fixes.py        # Cloud fixes test: Cold-start indexing & Streamlit Secrets
 ```
+
+### File & Directory Responsibilities
+
+Every file and directory in the project has a clearly defined responsibility verified against the source code:
+
+- **`app.py`:** The primary application entry point and user interface. Implemented with Streamlit, it provides a futuristic dark-glass chat interface, live user session switcher, persistent SQLite memory viewer, LangGraph execution trace pills, expandable evidence drawers, and Streamlit Community Cloud Secrets synchronization.
+- **`src/`:** Core backend logic and architecture modules:
+  - **`src/agents/`:** LangGraph multi-agent implementation containing agent nodes, state definitions, and graph compilation:
+    - **`src/agents/planner.py`:** Analyzes incoming user queries using deterministic regex patterns to classify intents into `research`, `memory`, or `hybrid` workflows.
+    - **`src/agents/memory_agent.py`:** Executes SQLite memory operations (`store`, `recall`, `update`, `forget`, `clear`) based on parsed user intent.
+    - **`src/agents/researcher_agent.py`:** Manages contextual search query formation, ChromaDB retrieval, prompt formatting, LLM generation, and citation validation.
+    - **`src/agents/graph.py`:** Compiles the LangGraph `StateGraph`, defining nodes and conditional edges that coordinate multi-agent execution.
+    - **`src/agents/state.py`:** Defines the `AgentState` TypedDict schema passing state (query, intent, user_id, memories, retrieved_chunks, answer, citations, execution_trace) between nodes.
+  - **`src/indexer.py`:** Manages the persistent ChromaDB vector database. Configures local ONNX `all-MiniLM-L6-v2` embeddings, provides idempotent indexing via `collection.upsert()`, executes semantic vector search, and provides `ensure_indexed()` for cold-start auto-initialization.
+  - **`src/corpus.py`:** Read-only loader and validator for `corpus.jsonl`. Confirms all 9 required fields, validates published date formats (YYYYMMDD), enforces unique chunk IDs, and preserves original source text.
+  - **`src/researcher.py`:** Core evidence verification engine. Manages LLM provider clients (Groq primary, Gemini secondary), formats grounded prompts with temporal conflict directives, and validates inline citations using regex matching against retrieved chunks.
+  - **`src/memory.py`:** Implements `SQLiteMemoryStore` for persistent key-value memory storage with parameterized SQL queries, case-insensitive key recall, and strict user-scoped isolation.
+- **`corpus.jsonl`:** The immutable official knowledge base containing 75 records across 25 documents. Preserved byte-for-byte unchanged (verified via SHA-256 hash).
+- **`eval/`:** Comprehensive automated evaluation framework:
+  - **`eval/benchmark_dataset.json`:** 15 carefully curated benchmark evaluation questions covering factual retrieval, temporal supersession, version conflicts, negative feature grounding, and memory isolation.
+  - **`eval/eval_runner.py`:** Automated benchmark runner measuring routing accuracy, retrieval recall @ top-5, citation validity, factual accuracy, and empirical A/B improvement over baseline RAG.
+  - **`eval/results.json`:** Serialized test execution outputs, latencies, and evaluation scores.
+  - **`eval/README.md`:** Detailed evaluation documentation, methodology, metric formulas, and failure analysis.
+- **`test_stage1.py` through `test_stage4.py`:** Existing stage-specific automated test suites covering corpus schema validation, indexing, vector retrieval, citation checking, live Groq inference, LangGraph routing, and SQLite memory operations.
+- **`test_cloud_fixes.py`:** Focused unit test suite verifying ChromaDB cold-start auto-indexing, strict count of 75, idempotency, search trigger, Streamlit Secrets compatibility, and safe error handling.
+- **`requirements.txt`:** Specifies pinned Python dependencies required to run the application, test suites, and evaluation runner.
+- **`.env.example`:** Example environment variable configuration containing placeholder keys for Groq, Gemini, and LangSmith. Contains zero secrets.
+- **`README.md`:** Primary project documentation, installation instructions, usage guide, test commands, and architectural breakdown.
+- **`DESIGN.md`:** In-depth architectural specification, Mermaid workflow diagrams, state schema details, precedence rules, and trade-off analyses.
+- **`AI_DISCLOSURE.md`:** Formal disclosure of AI coding assistants used during implementation and testing, along with human review and empirical verification evidence.
+- **`LANGSMITH_EVIDENCE.md`:** Verified public LangSmith trace links for inspectable execution runs with detailed node-by-node analysis.
+- **`.gitignore`:** Standard Git exclusion file preventing accidental commits of virtual environments (`.venv/`), local secrets (`.env`), persistent databases (`data/`), and runtime cache files.
 
 ---
 
@@ -257,6 +358,26 @@ LANGSMITH_PROJECT=asterline-research-assistant
 - **Offline / Deterministic Testing:** If no API keys are provided, all deterministic retrieval, vector search, citation validation, LangGraph routing, and SQLite memory tests still pass offline.
 - **LangSmith Tracing (Optional):** Setting `LANGSMITH_TRACING=true` and providing a `LANGSMITH_API_KEY` is optional for running the application locally, but is required if you want to record and inspect hosted trace runs in your LangSmith dashboard.
 
+### Streamlit Cloud Secrets Compatibility
+
+When deploying Asterline to **Streamlit Community Cloud**, you do not need to create or upload a `.env` file. You can configure your credentials directly in the Streamlit Cloud management dashboard under **App Settings &rarr; Secrets**:
+
+```toml
+# Streamlit Community Cloud Secrets (TOML format)
+GROQ_API_KEY = "gsk_your_actual_groq_key_here"
+GROQ_MODEL = "qwen/qwen3.8-27b"
+
+# Optional: Google Gemini fallback
+GEMINI_API_KEY = "your_gemini_key_here"
+
+# Optional: LangSmith Tracing
+LANGSMITH_TRACING = "false"
+LANGSMITH_API_KEY = "your_langsmith_key_here"
+LANGSMITH_PROJECT = "asterline-research-assistant"
+```
+
+The application automatically checks `st.secrets` for `GROQ_API_KEY` and `GEMINI_API_KEY` when environment variables are unset, and safely synchronizes string secrets into `os.environ` at startup so downstream libraries and background agents can access them transparently without exposing credentials.
+
 ---
 
 ## Running the Streamlit UI
@@ -361,6 +482,13 @@ streamlit run app.py --server.headless true
 ```
 *Result: Clean compilation; HTTP 200 on port 8501.*
 
+### 6. Cloud-Deployment Fixes Verification
+Verifies ChromaDB cold-start auto-indexing on empty storage, strict 75-record population, idempotency, search auto-indexing trigger, and Streamlit Community Cloud Secrets compatibility:
+```powershell
+python test_cloud_fixes.py
+```
+*Result: 6/6 tests passed.*
+
 ---
 
 ## Automated Evaluation Suite
@@ -392,7 +520,20 @@ python eval/eval_runner.py
 > [!NOTE]
 > Benchmark results reflect performance on the 15 curated evaluation questions in [`eval/benchmark_dataset.json`](eval/benchmark_dataset.json). The A/B measured improvement was evaluated on two specific temporal-conflict cases (`BENCH-02` and `BENCH-03`), demonstrating an observed empirical gain in citation grounding and conflict resolution under those test conditions rather than an absolute or universal guarantee across all possible unseen documents.
 
-For complete evaluation methodology, failure analysis, and benchmark details, see [eval/README.md](eval/README.md). For detailed architecture specifications, see [DESIGN.md](DESIGN.md). For AI usage disclosure, see [AI_DISCLOSURE.md](AI_DISCLOSURE.md).
+For complete evaluation methodology, failure analysis, and benchmark details, see [eval/README.md](eval/README.md). For detailed architecture specifications, see [DESIGN.md](DESIGN.md). For AI usage disclosure, see [AI_DISCLOSURE.md](AI_DISCLOSURE.md). For inspectable execution traces, see [LANGSMITH_EVIDENCE.md](LANGSMITH_EVIDENCE.md).
+
+---
+
+## Documentation Index
+
+Comprehensive project documentation is maintained across dedicated Markdown files:
+
+- **[`DESIGN.md`](DESIGN.md):** Complete system architecture specifications, Mermaid state machine diagrams, agent responsibilities, information flow, memory approach, and architectural trade-offs.
+- **[`AI_DISCLOSURE.md`](AI_DISCLOSURE.md):** Detailed disclosure of AI coding assistants used during development, debugging, testing, and evaluation, accompanied by human oversight and empirical verification statements.
+- **[`LANGSMITH_EVIDENCE.md`](LANGSMITH_EVIDENCE.md):** Verified public LangSmith trace links for inspectable execution runs (Enterprise SLA research run and Cold Recovery Retention conflict resolution run).
+- **[`eval/README.md`](eval/README.md):** Benchmark methodology, evaluation metric formulas, empirical A/B measured improvement analysis, and failure mode documentation.
+- **[`eval/benchmark_dataset.json`](eval/benchmark_dataset.json):** The 15 curated benchmark evaluation cases across document grounding, temporal supersession, and memory operations.
+- **[`eval/results.json`](eval/results.json):** The serialized output metrics and latencies produced by `eval/eval_runner.py`.
 
 ---
 
