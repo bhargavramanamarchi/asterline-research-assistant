@@ -11,8 +11,10 @@ import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 
-# Path for persistent vector storage as required
-DEFAULT_DB_PATH = os.path.join("data", "chroma_db")
+# Base project root resolved relative to this source file
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DB_PATH = os.path.join(PROJECT_ROOT, "data", "chroma_db")
+DEFAULT_CORPUS_PATH = os.path.join(PROJECT_ROOT, "corpus.jsonl")
 COLLECTION_NAME = "asterline_corpus"
 
 
@@ -52,6 +54,60 @@ def get_or_create_collection(
         metadata={"hnsw:space": "cosine"},
     )
     return collection
+
+
+def ensure_indexed(
+    client: Optional[chromadb.PersistentClient] = None,
+    collection_name: str = COLLECTION_NAME,
+    db_path: str = DEFAULT_DB_PATH,
+    corpus_path: Optional[str] = None,
+) -> int:
+    """
+    Ensures that the persistent collection contains the indexed corpus records.
+    If the collection is empty (e.g. cold-start deployment on Streamlit Cloud
+    or a fresh container), loads corpus.jsonl and indexes it idempotently.
+
+    Reuses existing `load_corpus` and `index_corpus` without duplication or recursion.
+    Returns the total number of records in the collection (expected: 75).
+    """
+    collection = get_or_create_collection(
+        client=client, collection_name=collection_name, db_path=db_path
+    )
+    current_count = collection.count()
+    if current_count > 0:
+        return current_count
+
+    if corpus_path:
+        target_corpus = corpus_path
+        if not os.path.exists(target_corpus):
+            raise FileNotFoundError(
+                f"Cold-start indexing failed: corpus file not found at '{target_corpus}'."
+            )
+    else:
+        target_corpus = DEFAULT_CORPUS_PATH
+        if not os.path.exists(target_corpus):
+            alt_corpus = os.path.join(os.getcwd(), "corpus.jsonl")
+            if os.path.exists(alt_corpus):
+                target_corpus = alt_corpus
+            else:
+                raise FileNotFoundError(
+                    f"Cold-start indexing failed: corpus file not found at '{target_corpus}'."
+                )
+
+    from src.corpus import load_corpus
+
+    try:
+        records = load_corpus(target_corpus)
+        return index_corpus(
+            records=records,
+            client=client,
+            collection_name=collection_name,
+            db_path=db_path,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Cold-start auto-indexing failed for '{target_corpus}': {exc}"
+        ) from exc
 
 
 def index_corpus(
@@ -135,6 +191,7 @@ def search_corpus(
 ) -> List[Dict[str, Any]]:
     """
     Performs semantic vector search against the persistent corpus index.
+    Automatically initializes the index if the collection is empty (cold-start).
     
     Args:
         query: User or research query string.
@@ -151,6 +208,14 @@ def search_corpus(
     collection = get_or_create_collection(
         client=client, collection_name=collection_name, db_path=db_path
     )
+
+    # Cold-start safeguard: auto-index if collection is unpopulated
+    if collection.count() == 0:
+        ensure_indexed(
+            client=client,
+            collection_name=collection_name,
+            db_path=db_path,
+        )
 
     query_params: Dict[str, Any] = {
         "query_texts": [query],

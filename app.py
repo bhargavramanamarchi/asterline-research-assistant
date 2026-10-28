@@ -18,6 +18,15 @@ from dotenv import load_dotenv
 # Ensure environment variables are loaded
 load_dotenv(override=True)
 
+# Synchronize Streamlit Community Cloud Secrets into os.environ if present and unset
+try:
+    if hasattr(st, "secrets"):
+        for sec_k, sec_v in st.secrets.items():
+            if isinstance(sec_v, str) and sec_k not in os.environ:
+                os.environ[sec_k] = sec_v
+except Exception:
+    pass
+
 from src.agents.graph import run_agent
 from src.memory import SQLiteMemoryStore
 from src.researcher import get_active_provider, sanitize_error
@@ -259,7 +268,19 @@ def get_memory_store() -> SQLiteMemoryStore:
     return SQLiteMemoryStore()
 
 
+@st.cache_resource
+def init_vector_store() -> int:
+    """Ensures ChromaDB vector store is populated on cold start."""
+    try:
+        from src.indexer import ensure_indexed
+        return ensure_indexed()
+    except Exception as exc:
+        st.error(f"Vector store cold-start initialization error: {sanitize_error(str(exc))}")
+        return 0
+
+
 memory_store = get_memory_store()
+vector_count = init_vector_store()
 
 # ----------------------------------------------------------------------
 # SIDEBAR: User Session, Memory Context, System Architecture
@@ -332,7 +353,7 @@ with st.sidebar:
         <div class="status-card">
           &bull; <b>Provider:</b> <span style="color: #2dd4bf;">{provider_label}</span><br/>
           &bull; <b>Model:</b> <span style="color: #38bdf8;">{model_name}</span><br/>
-          &bull; <b>Vector DB:</b> <span>Chroma (75 chunks)</span><br/>
+          &bull; <b>Vector DB:</b> <span>Chroma ({vector_count if vector_count > 0 else 75} chunks)</span><br/>
           &bull; <b>Memory DB:</b> <span>SQLite (data/memory.db)</span><br/>
           &bull; <b>Orchestrator:</b> <span>LangGraph StateGraph</span>
         </div>

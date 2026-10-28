@@ -21,7 +21,7 @@ load_dotenv(override=True)
 
 def get_groq_api_key() -> Optional[str]:
     """
-    Retrieves the Groq API key from environment variables.
+    Retrieves the Groq API key from environment variables or Streamlit secrets.
     Checks GROQ_API_KEY. Never prints or logs the key value.
     """
     load_dotenv(override=True)
@@ -33,12 +33,23 @@ def get_groq_api_key() -> Optional[str]:
     }
     if key and key.strip() and key.strip() not in invalid_placeholders:
         return key.strip()
+
+    # Fallback to Streamlit Community Cloud secrets when not in os.environ
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
+            sec_key = str(st.secrets["GROQ_API_KEY"]).strip()
+            if sec_key and sec_key not in invalid_placeholders:
+                return sec_key
+    except Exception:
+        pass
+
     return None
 
 
 def get_gemini_api_key() -> Optional[str]:
     """
-    Retrieves the Gemini API key from environment variables.
+    Retrieves the Gemini API key from environment variables or Streamlit secrets.
     Checks GEMINI_API_KEY first, then GOOGLE_API_KEY.
     Never prints or logs the key value.
     """
@@ -51,6 +62,19 @@ def get_gemini_api_key() -> Optional[str]:
     }
     if key and key.strip() and key.strip() not in invalid_placeholders:
         return key.strip()
+
+    # Fallback to Streamlit Community Cloud secrets when not in os.environ
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets"):
+            for candidate in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+                if candidate in st.secrets:
+                    sec_key = str(st.secrets[candidate]).strip()
+                    if sec_key and sec_key not in invalid_placeholders:
+                        return sec_key
+    except Exception:
+        pass
+
     return None
 
 
